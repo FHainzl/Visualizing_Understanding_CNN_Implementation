@@ -12,6 +12,23 @@ import numpy as np
 import os
 
 
+def get_weights_dict(model):
+    weights_dict = {}
+    for layer in model.layers:
+        if not layer.name.startswith('conv_'):
+            print('Not important: {}'.format(layer.name))
+            continue
+        weight = layer.get_weights()
+        try:
+            w = weight[0]
+            b = weight[1]
+            assert type(w) == np.ndarray
+            weights_dict[layer.name] = [w, b]
+        except IndexError:
+            print('The problem was {}'.format(layer.name))
+    return weights_dict
+
+
 class Deconvolution():
     def __init__(self, conv_base_model):
         self.layername = 'conv_1'
@@ -48,45 +65,15 @@ class Deconvolution():
     def Bias3D(self):
         b3D = np.zeros(self.conv_from_shape)
         for f in range(self.b.size):
-            b3D[f] = np.full_like(b3D[0, 0], self.b[f])
+            b3D[f] = np.full_like(b3D[0], self.b[f])
+        b3D = np.expand_dims(b3D, axis=0)
         return b3D
 
     def project_back(self, input):
         starttensor = input - self.bias3D
-        return self.deconv_model.predict(starttensor)
-
-
-def get_weights_dict(model):
-    weights_dict = {}
-    for layer in model.layers:
-        if not layer.name.startswith('conv_'):
-            print('Not important: {}'.format(layer.name))
-            continue
-        weight = layer.get_weights()
-        try:
-            w = weight[0]
-            b = weight[1]
-            assert type(w) == np.ndarray
-            weights_dict[layer.name] = [w, b]
-        except IndexError:
-            print('The problem was {}'.format(layer.name))
-    return weights_dict
-
-
-"""
-Transform output of Deconvolutional Net to image and save to file
-"""
-
-
-# def array2image(array, filename='test.JPEG'):
-#     result = result[0, :, :, :]
-#     result = np.moveaxis(result, 0, -1)
-#     result[:, :, 0] += 123.68
-#     result[:, :, 1] += 116.779
-#     result[:, :, 2] += 103.939
-#     print(result.shape)
-#     filename = 'test.jpeg'
-#     new_im = Image.fromarray(result.astype(dtype=np.uint8), 'RGB')
+        nobias = self.deconv_model.predict(input)
+        bias = self.deconv_model.predict(starttensor)
+        return bias
 
 
 class Deconv_Output():
@@ -126,17 +113,35 @@ class Deconv_Output():
         self.image.save(filename)
 
 
+def visualize_filter(conv_base_model, filter_num):
+    f = filter_num
+    layer_name = 'conv_' + str(filter_num)
+    w = conv_base_model.get_layer('conv_1').get_weights()[0]
+    w = w[:, :, :, f - 1]
+    result = Deconv_Output(w)
+    result.save_as(filename='Filters_Layer1_Visualized/filter{}.JPEG'.format(f))
+
+
 if __name__ == '__main__':
     conv_base_model = AlexNet()
-    layer_num = 1
 
-    layer_name = 'conv_' + str(layer_num)
-    conv_model = Model(inputs=conv_base_model.input, outputs=conv_base_model.get_layer(layer_name).output)
-    activations = conv_model.predict(preprocess_image_batch(['Example_JPG/Elephant.jpg']))
+    for f in range(96):
+        visualize_filter(conv_base_model,f)
+    # layer_num = 1
+    # f = 83
+    #
+    # layer_name = 'conv_' + str(layer_num)
+    # conv_model = Model(inputs=conv_base_model.input,
+    #                    outputs=conv_base_model.get_layer(layer_name).output)
+    # activations = conv_model.predict(
+    #     preprocess_image_batch(['Layer1_Strongest_IMG/Layer1_Filter{}_Top1.JPEG'.format(f)]))
+    # activation_of_one_filter = np.zeros_like(activations)
+    # activation_of_one_filter[:, f - 1, :, :] = activations[:, f - 1, :, :]
 
-    deconv = Deconvolution(conv_base_model)
-    result = Deconv_Output(deconv.project_back(activations))
-    result.save_as()
+    # deconv = Deconvolution(conv_base_model)
+    # ar = deconv.project_back(activation_of_one_filter)
+    # print(ar.shape)
+    # result = Deconv_Output(deconv.project_back(activation_of_one_filter))
 
 
     # conv_base_model = AlexNet()

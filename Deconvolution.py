@@ -1,4 +1,5 @@
 from AlexNet import AlexNet, preprocess_image_batch
+from Deconv_AdditionalLayers import subtract_bias
 
 from keras.models import Model
 from keras.layers import Input, Deconv2D
@@ -11,38 +12,48 @@ import numpy as np
 import os
 
 
-def Deconv_Net(conv_base_model):
-    K.set_image_dim_ordering('th')
+class Deconvolution():
+    def __init__(self, conv_base_model):
+        self.layername = 'conv_1'
+        self.layer = conv_base_model.get_layer(self.layername)
+        self.conv_from_shape = self.layer.output_shape[1:]
+        self.conv_to_shape = self.layer.input_shape[1:]
+        self.w, self.b = self.layer.get_weights()
+        self.bias3D = self.Bias3D()
 
-    conv1 = conv_base_model.get_layer('conv_1')
-    # max1 = conv_model.get_layer('m')
+        self.conv_base_model = conv_base_model
+        self.deconv_model = self.Deconv1_Model()
 
-    inputs = Input(shape=conv1.output_shape[1:])
-    # prediction = Deconv2D(filters=conv1.input_shape[1], kernel_size=conv1.kernel_size, strides=conv1.strides,
-    #                       activation='relu',
-    #                       name='deconv_1')(inputs)
+    def Deconv1_Model(self):
+        K.set_image_dim_ordering('th')
+        inputs = Input(shape=self.conv_from_shape)
+        prediction = Deconv2D(filters=self.conv_to_shape[0],
+                              kernel_size=self.layer.kernel_size,
+                              strides=self.layer.strides,
+                              activation='relu',
+                              use_bias=False,
+                              name='deconv_1')(inputs)
 
-    # Try without Bias
-    prediction = Deconv2D(filters=conv1.input_shape[1], kernel_size=conv1.kernel_size, strides=conv1.strides,
-                          activation='relu', use_bias=False,
-                          name='deconv_1')(inputs)
+        m = Model(input=inputs, output=prediction)
+        convert_all_kernels_in_model(m)
 
-    m = Model(input=inputs, output=prediction)
-    convert_all_kernels_in_model(m)
+        sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+        m.compile(optimizer=sgd, loss='mse')
 
-    # w_de, b_de = m.get_layer('deconv_1').get_weights()
-    w_de = m.get_layer('deconv_1').get_weights()
-    w, b = conv_base_model.get_layer('conv_1').get_weights()
-    m.get_layer('deconv_1').set_weights([w])
+        assert m.get_layer('deconv_1').get_weights()[0].shape == self.w.shape
+        m.get_layer('deconv_1').set_weights([self.w])
 
-    sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    m.compile(optimizer=sgd, loss='mse')
+        return m
 
-    # That was stupid
-    # w, b = m.get_weights()
+    def Bias3D(self):
+        b3D = np.zeros(self.conv_from_shape)
+        for f in range(self.b.size):
+            b3D[f] = np.full_like(b3D[0, 0], self.b[f])
+        return b3D
 
-
-    return m
+    def project_back(self, input):
+        starttensor = input - self.bias3D
+        return self.deconv_model.predict(starttensor)
 
 
 def get_weights_dict(model):
@@ -67,20 +78,20 @@ Transform output of Deconvolutional Net to image and save to file
 """
 
 
-def array2image(array, filename='test.JPEG'):
-    result = result[0, :, :, :]
-    result = np.moveaxis(result, 0, -1)
-    result[:, :, 0] += 123.68
-    result[:, :, 1] += 116.779
-    result[:, :, 2] += 103.939
-    print(result.shape)
-    filename = 'test.jpeg'
-    new_im = Image.fromarray(result.astype(dtype=np.uint8), 'RGB')
+# def array2image(array, filename='test.JPEG'):
+#     result = result[0, :, :, :]
+#     result = np.moveaxis(result, 0, -1)
+#     result[:, :, 0] += 123.68
+#     result[:, :, 1] += 116.779
+#     result[:, :, 2] += 103.939
+#     print(result.shape)
+#     filename = 'test.jpeg'
+#     new_im = Image.fromarray(result.astype(dtype=np.uint8), 'RGB')
 
 
 class Deconv_Output():
-    def __init__(self, output):  # Takes output of DeconvNet
-        self.array = self._rearrange_array(output)
+    def __init__(self, unarranged_array):  # Takes output of DeconvNet
+        self.array = self._rearrange_array(unarranged_array)
         self.image = None
 
     def _rearrange_array(self, unarranged_array):
@@ -99,12 +110,12 @@ class Deconv_Output():
         return unarranged_array
 
     def save_as(self, folder=None, filename='test.JPEG'):
-        self.image = Image.fromarray(self.array.astype(np.uint8, 'RGB'))
+        self.image = Image.fromarray(self.array.astype(np.uint8), 'RGB')
         if self.image.mode != 'RGB':
             self.image = self.image.convert('RGB')
 
-        assert type(folder) is str
         if folder is not None:
+            assert type(folder) is str
             filename = folder + '/' + filename
 
         try:
@@ -117,17 +128,29 @@ class Deconv_Output():
 
 if __name__ == '__main__':
     conv_base_model = AlexNet()
-    conv_model = Model(inputs=conv_base_model.input, outputs=conv_base_model.get_layer('conv_1').output)
-    deconv_model = Deconv_Net(conv_base_model)
-    # deconv_model.summary()
-    im = preprocess_image_batch(['Layer1_Strongest_IMG/Layer1_Filter{}_Top7.JPEG'.format(filter)])
-    activation = conv_model.predict(im)
-    # filter = 1
-    # activation_of_one_filter = np.zeros_like(activation)
-    # activation_of_one_filter[:, filter - 1, :, :] = activation[:, filter - 1, :, :]
-    # # activation_of_one_filter = activation
-    # max_activation_of_one_filter = np.zeros_like(activation)
-    # max_loc = activation_of_one_filter.argmax()
-    # max_loc = np.unravel_index(max_loc,activation.shape)
-    # max_activation_of_one_filter[0+max_loc] = activation_of_one_filter.max()
-    result = deconv_model.predict(activation)
+    layer_num = 1
+
+    layer_name = 'conv_' + str(layer_num)
+    conv_model = Model(inputs=conv_base_model.input, outputs=conv_base_model.get_layer(layer_name).output)
+    activations = conv_model.predict(preprocess_image_batch(['Example_JPG/Elephant.jpg']))
+
+    deconv = Deconvolution(conv_base_model)
+    result = Deconv_Output(deconv.project_back(activations))
+    result.save_as()
+
+
+    # conv_base_model = AlexNet()
+    # conv_model = Model(inputs=conv_base_model.input, outputs=conv_base_model.get_layer('conv_1').output)
+    # deconv_model = Deconv_Net(conv_base_model)
+    # # deconv_model.summary()
+    # im = preprocess_image_batch(['Layer1_Strongest_IMG/Layer1_Filter{}_Top7.JPEG'.format(filter)])
+    # activation = conv_model.predict(im)
+    # # filter = 1
+    # # activation_of_one_filter = np.zeros_like(activation)
+    # # activation_of_one_filter[:, filter - 1, :, :] = activation[:, filter - 1, :, :]
+    # # # activation_of_one_filter = activation
+    # # max_activation_of_one_filter = np.zeros_like(activation)
+    # # max_loc = activation_of_one_filter.argmax()
+    # # max_loc = np.unravel_index(max_loc,activation.shape)
+    # # max_activation_of_one_filter[0+max_loc] = activation_of_one_filter.max()
+    # result = deconv_model.predict(activation)

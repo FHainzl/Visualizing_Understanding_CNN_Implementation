@@ -128,13 +128,10 @@ def preprocess_image_batch(image_paths, img_size=(256, 256), crop_size=(227, 227
 
 
 class AlexNet():
-    def __init__(self, highest_layer_num=None):
+    def __init__(self, highest_layer_num=None, base_model = None):
         self.highest_layer_num = highest_layer_num
-        self.base_model = AlexNetModel()
-        if not self.highest_layer_num:
-            self.model = self.base_model
-        else:
-            self.model = self.sub_model()
+        self.base_model = base_model if base_model else AlexNetModel() # If no base model specified, use AlexNet
+        self.model = self.sub_model() if highest_layer_num else self.base_model # Use full network if no highest_layer
 
     def sub_model(self):
         highest_layer_name = 'conv_{}'.format(self.highest_layer_num)

@@ -1,5 +1,5 @@
 from Classify import Classify_AlexNet
-from AlexNet import AlexNet, preprocess_image_batch
+from AlexNet import AlexNetModel, preprocess_image_batch
 import os
 import time
 

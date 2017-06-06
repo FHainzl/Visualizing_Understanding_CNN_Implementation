@@ -1,4 +1,4 @@
-from AlexNet import AlexNet, preprocess_image_batch
+from AlexNet import AlexNetModel, preprocess_image_batch
 
 from keras.models import Model
 from shutil import copyfile, rmtree
@@ -119,7 +119,7 @@ def Find_Strongest_Images(layer_num, top=9):
 
 
 if __name__ == '__main__':
-    base_model = AlexNet()
+    base_model = AlexNetModel()
     # Get activations and copy maximally activating images to folder
     for i in (5, 4, 3, 2, 1):
         Get_Activations(i, base_model)

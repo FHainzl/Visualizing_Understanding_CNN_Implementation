@@ -1,7 +1,7 @@
 from VGG16 import VGG16
 from keras.applications.vgg16 import preprocess_input as vgg16_preprocess_input
 
-from AlexNet import AlexNet, preprocess_image_batch
+from AlexNet import AlexNetModel, preprocess_image_batch
 
 import numpy as np
 from Decode import decode_classnames_json, decode_classnumber
@@ -33,7 +33,7 @@ def Classify_VGG16(img_path, model=None, printing=False):
 
 def Classify_AlexNet(img_path, model=None, printing=False):
     if model is None:
-        model = AlexNet()
+        model = AlexNetModel()
 
     # Convert img_path to iterable if necessary
     if type(img_path) is str:
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # Print_Top5(testimage, 'VGG16')
 
     testimages = ['Example_JPG/Cabrio.jpg', 'Example_JPG/RoadBike.jpg', 'Example_JPG/Trump.jpg']
-    model = AlexNet()
+    model = AlexNetModel()
     preds = (Classify_AlexNet(testimages,model))
     for pred in preds:
         print(pred)

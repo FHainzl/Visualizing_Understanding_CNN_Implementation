@@ -18,7 +18,8 @@ from scipy.misc import imread, imresize
 from AlexNet_AdditionalLayers import split_tensor, cross_channel_normalization
 from Decode import decode_classnames_json
 
-def AlexNet(weights_path=None):
+
+def AlexNetModel(weights_path=None):
     """
         Returns a keras model for AlexNet.
         BEWARE !! : Since the different convnets have been trained in different settings, they don't take
@@ -126,11 +127,31 @@ def preprocess_image_batch(image_paths, img_size=(256, 256), crop_size=(227, 227
         return img_batch
 
 
+class AlexNet():
+    def __init__(self, highest_layer_num=None):
+        self.highest_layer_num = highest_layer_num
+        self.base_model = AlexNetModel()
+        if not self.highest_layer_num:
+            self.model = self.base_model
+        else:
+            self.model = self.sub_model()
+
+    def sub_model(self):
+        highest_layer_name = 'conv_{}'.format(self.highest_layer_num)
+        highest_layer = self.base_model.get_layer(highest_layer_name)
+        return Model(inputs=self.base_model.input,
+                     outputs=highest_layer.output)
+
+    def predict(self, img_path):
+        img = preprocess_image_batch([img_path])
+        return self.model.predict(img)
+
+
 if __name__ == "__main__":
     # Test pre-trained model
     im = preprocess_image_batch(['Example_JPG/Elephant.jpg'])
-    model = AlexNet()
-    #plot_model(model, to_file='model.png',show_shapes=True)
-    #print(model.summary())
+    model = AlexNetModel()
+    # plot_model(model, to_file='model.png',show_shapes=True)
+    # print(model.summary())
     out = model.predict(im)
     print(decode_classnames_json(out))

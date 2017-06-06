@@ -1,4 +1,4 @@
-from AlexNet import AlexNet, preprocess_image_batch
+from AlexNet import AlexNet, AlexNetModel, preprocess_image_batch
 from Deconv_AdditionalLayers import subtract_bias
 
 from keras.models import Model
@@ -32,10 +32,10 @@ def get_weights_dict(model):
 class Deconvolution():
     def __init__(self, conv_base_model):
         self.layername = 'conv_1'
-        self.layer = conv_base_model.get_layer(self.layername)
-        self.conv_from_shape = self.layer.output_shape[1:]
-        self.conv_to_shape = self.layer.input_shape[1:]
-        self.w, self.b = self.layer.get_weights()
+        self.conv_layer = conv_base_model.get_layer(self.layername)
+        self.conv_from_shape = self.conv_layer.output_shape[1:]
+        self.conv_to_shape = self.conv_layer.input_shape[1:]
+        self.w, self.b = self.conv_layer.get_weights()
         self.bias3D = self.Bias3D()
 
         self.conv_base_model = conv_base_model
@@ -45,8 +45,8 @@ class Deconvolution():
         K.set_image_dim_ordering('th')
         inputs = Input(shape=self.conv_from_shape)
         prediction = Deconv2D(filters=self.conv_to_shape[0],
-                              kernel_size=self.layer.kernel_size,
-                              strides=self.layer.strides,
+                              kernel_size=self.conv_layer.kernel_size,
+                              strides=self.conv_layer.strides,
                               activation='relu',
                               use_bias=False,
                               name='deconv_1')(inputs)
@@ -58,7 +58,8 @@ class Deconvolution():
         m.compile(optimizer=sgd, loss='mse')
 
         assert m.get_layer('deconv_1').get_weights()[0].shape == self.w.shape
-        m.get_layer('deconv_1').set_weights([self.w])
+        w_t = np.moveaxis(self.w,1,0)
+        m.get_layer('deconv_1').set_weights([w_t])
 
         return m
 
@@ -123,25 +124,21 @@ def visualize_filter(conv_base_model, filter_num):
 
 
 if __name__ == '__main__':
-    conv_base_model = AlexNet()
+    layer_num = 1
+    # activations = AlexNet(layer_num).predict('Example_JPG/Elephant.jpg')
 
-    for f in range(96):
-        visualize_filter(conv_base_model,f)
-    # layer_num = 1
-    # f = 83
-    #
-    # layer_name = 'conv_' + str(layer_num)
-    # conv_model = Model(inputs=conv_base_model.input,
-    #                    outputs=conv_base_model.get_layer(layer_name).output)
-    # activations = conv_model.predict(
-    #     preprocess_image_batch(['Layer1_Strongest_IMG/Layer1_Filter{}_Top1.JPEG'.format(f)]))
+    # Show that inverting preprocessing works
+    img_path = 'Example_JPG/Elephant.jpg'
+    array = preprocess_image_batch([img_path])
+    Deconv_Output(array).save_as(filename='array.JPEG')
+
+
     # activation_of_one_filter = np.zeros_like(activations)
     # activation_of_one_filter[:, f - 1, :, :] = activations[:, f - 1, :, :]
-
     # deconv = Deconvolution(conv_base_model)
-    # ar = deconv.project_back(activation_of_one_filter)
-    # print(ar.shape)
-    # result = Deconv_Output(deconv.project_back(activation_of_one_filter))
+    # deconv.project_back(activations)
+    # result = Deconv_Output(deconv.project_back(activations))
+    # result.save_as()
 
 
     # conv_base_model = AlexNet()

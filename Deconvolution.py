@@ -12,22 +12,52 @@ import numpy as np
 import os
 
 
-class Deconvolution():
-    conv_layer_names = ['conv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
-
+class Deconvolution:
     def __init__(self, conv_base_model=None):
+        self.conv_base_model = conv_base_model if conv_base_model else AlexNetModel()
+        self.conv_sub_models = [None] + [AlexNet(i, self.conv_base_model) for i in (1, 2, 3, 4, 5)]  # Make it 1-based
+        self.deconv_layers = DeconvLayers(self.conv_base_model).deconv_layers
+
+        # This attributes will be filled by 'project_down' method
+        self.activation = None
+        self.layer = None
+        self.f = None
+
+    def project_down(self, image_path, layer, f=None):
+        self.layer = layer
+        self.f = f
+        self.activation = self.conv_sub_models[self.layer].predict(img_path)
+        if filter:
+            self.set_zero_except_maximum()
+
+    def set_zero_except_maximum(self):
+        # Set other layers to zero
+        new_activation = np.zeros_like(self.activation)
+        new_activation[self.f - 1] = self.activation[self.f - 1]
+
+        # Set other activations in same layer to zero
+        max_index_flat = np.nanargmax(new_activation)
+        max_index = np.unravel_index(max_index_flat, new_activation)
+        self.activation = np.zeros_like(new_activation)
+        self.activation[max_index] = new_activation[max_index]
+
+
+class DeconvLayers:
+    conv_layer_names = ['conv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
+    deconv_layer_names = ['deconv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
+
+    def __init__(self, conv_base_model):
 
         # Full AlexNet
-        self.conv_base_model = conv_base_model if conv_base_model else AlexNetModel()
+        self.conv_base_model = conv_base_model
         self.conv_layers = self.init_conv_layers()
-        # Create models that extract features for each layer
-        self.conv_sub_models = [AlexNet(i, self.conv_base_model) for i in (1, 2, 3, 4, 5)]
 
         self.weights = self.init_weights_dict()
         self.bias3D = self.init_bias3D_dict()
-        pass
 
-    def Deconv_Model(self, layer_name):
+        self.deconv_layers = self.init_deconv_layers()
+
+    def Deconv_Layer_Model(self, layer_name):
         K.set_image_dim_ordering('th')
 
         # Get local variables from dictionaries
@@ -67,7 +97,7 @@ class Deconvolution():
 
     def init_weights_dict(self):
         weights_dict = {}
-        for layer_name,layer in self.conv_layers.items():
+        for layer_name, layer in self.conv_layers.items():
             w = layer.get_weights()[0]
             b = layer.get_weights()[1]
             weights_dict[layer_name] = W(w, b)
@@ -75,7 +105,7 @@ class Deconvolution():
 
     def init_bias3D_dict(self):
         bias_dict = {}
-        for layer_name,layer in self.conv_layers.items():
+        for layer_name, layer in self.conv_layers.items():
             b3D = np.zeros(layer.output_shape[1:])
             for f in range(b3D.shape[0]):
                 b3D[f] = np.full_like(b3D[0], self.weights[layer_name].b[f])
@@ -83,22 +113,23 @@ class Deconvolution():
             bias_dict[layer_name] = b3D
         return bias_dict
 
-    def predict(self, input):
-        starttensor = input - self.bias3D
-        bias = self.deconv_model.predict(starttensor)
-        return bias
+    def init_deconv_layers(self):
+        deconv_layers = {}
+        for deconv_layer_name in self.deconv_layer_names:
+            deconv_layers[deconv_layer_name] = self.Deconv_Layer_Model(deconv_layer_name[2:])
+        return deconv_layers
 
 
-class W():
+class W:
     def __init__(self, w, b):
         assert type(w) == np.ndarray
         assert type(b) == np.ndarray
         self.w = w
         self.b = b
-        self.tuple = (w,b)
+        self.tuple = (w, b)
 
 
-class Deconv_Output():
+class Deconv_Output:
     def __init__(self, unarranged_array):  # Takes output of DeconvNet
         self.array = self._rearrange_array(unarranged_array)
         self.image = None
@@ -150,10 +181,13 @@ def visualize_all_filter_in_layer1(conv_model):
 
 
 if __name__ == '__main__':
-    deconv = Deconvolution()
-    layer_num = 1
-    activations = AlexNet(layer_num).predict('Example_JPG/Elephant.jpg')
-    Deconv_Output(deconv.Deconv_Model('conv_1').predict(activations)).save_as()
+    img_path = 'Example_JPG/Elephant.jpg'
+    Deconvolution().project_down(img_path,1,1)
+    # Convolution use
+    if False:
+        layer_num = 1
+        activations = AlexNet(layer_num).predict('Example_JPG/Elephant.jpg')
+        Deconv_Output(deconv.Deconv_Layer_Model('conv_1').predict(activations)).save_as()
 
     # Filter visualization and image output test
     if False:

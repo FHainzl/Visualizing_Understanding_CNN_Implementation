@@ -2,7 +2,7 @@ from AlexNet import AlexNet, AlexNetModel, preprocess_image_batch
 from Deconv_AdditionalLayers import subtract_bias
 
 from keras.models import Model
-from keras.layers import Input, Deconv2D
+from keras.layers import Input, Conv2DTranspose
 from keras.utils.layer_utils import convert_all_kernels_in_model
 from keras import backend as K
 from keras.optimizers import SGD
@@ -13,31 +13,63 @@ import os
 
 
 class Deconvolution:
+    channels = [3, 96, 256, 384, 384, 256]  # Corresponds to the number of filters in convolution
+
     def __init__(self, conv_base_model=None):
+        # Set convolutional model and submodels, which get activations after given layer
         self.conv_base_model = conv_base_model if conv_base_model else AlexNetModel()
         self.conv_sub_models = [None] + [AlexNet(i, self.conv_base_model) for i in (1, 2, 3, 4, 5)]  # Make it 1-based
-        self.deconv_layers = DeconvLayers(self.conv_base_model).deconv_layers
+
+        # Get deconvolutional layers from Deconv_Layers instance
+        DeconvLayers_Instance = DeconvLayers(self.conv_base_model)
+        self.deconv_layers = DeconvLayers_Instance.deconv_layers
+        self.bias3D = DeconvLayers_Instance.bias3D
 
         # This attributes will be filled by 'project_down' method
         self.activation = None
-        self.layer = None
+        self.current_layer = None
         self.f = None
 
     def project_down(self, image_path, layer, f=None):
-        self.layer = layer
+        self.current_layer = layer
         self.f = f
-        self.activation = self.conv_sub_models[self.layer].predict(img_path)
-        if filter:
+        self.activation = self.conv_sub_models[self.current_layer].predict(img_path)
+        if f:
             self.set_zero_except_maximum()
+        if self.current_layer >= 2:
+            self.project_through_split()
+
+            # Deconv_Output(self.deconv_layers['deconv_1'].predict(self.activation)).save_as()
+            # return self.activation
+
+    def project_through_split(self):
+        cl = self.current_layer
+
+        # Make sure dimensions are fine
+        assert self.activation.shape[1] == self.channels[cl], 'Channel number incorrect'
+
+        # Split, perform Deconvolution on splits, merge
+        activation_cl_1 = self.activation[:, : self.channels[cl] // 2]
+        activation_cl_2 = self.activation[:, self.channels[cl] // 2:]
+
+        deconv_cl_1 = 'deconv_{}_1'.format(cl)
+        deconv_cl_2 = 'deconv_{}_2'.format(cl)
+        projected_activation_cl_1 = self.deconv_layers[deconv_cl_1].predict(activation_cl_1)
+        projected_activation_cl_2 = self.deconv_layers[deconv_cl_2].predict(activation_cl_2)
+
+        self.activation = np.concatenate((projected_activation_cl_1, projected_activation_cl_2), axis=1)
+        assert self.activation.shape[1] == self.channels[cl - 1], 'Channel number incorrect'
+
+        self.current_layer -= 1
 
     def set_zero_except_maximum(self):
         # Set other layers to zero
         new_activation = np.zeros_like(self.activation)
-        new_activation[self.f - 1] = self.activation[self.f - 1]
+        new_activation[0, self.f - 1] = self.activation[0, self.f - 1]
 
         # Set other activations in same layer to zero
         max_index_flat = np.nanargmax(new_activation)
-        max_index = np.unravel_index(max_index_flat, new_activation)
+        max_index = np.unravel_index(max_index_flat, new_activation.shape)
         self.activation = np.zeros_like(new_activation)
         self.activation[max_index] = new_activation[max_index]
 
@@ -71,12 +103,12 @@ class DeconvLayers:
 
         # Build layer
         inputs = Input(shape=deconv_from_shape)
-        prediction = Deconv2D(filters=deconv_to_shape[0],  # N_Filters equals N_channels of convolution input
-                              kernel_size=conv_layer.kernel_size,
-                              strides=conv_layer.strides,
-                              activation='relu',
-                              use_bias=False,
-                              name=de_layer_name)(inputs)
+        prediction = Conv2DTranspose(filters=deconv_to_shape[0],  # N_Filters equals N_channels of convolution input
+                                     kernel_size=conv_layer.kernel_size,
+                                     strides=conv_layer.strides,
+                                     activation='relu',
+                                     use_bias=False,
+                                     name=de_layer_name)(inputs)
 
         m = Model(input=inputs, output=prediction)
         convert_all_kernels_in_model(m)
@@ -181,13 +213,8 @@ def visualize_all_filter_in_layer1(conv_model):
 
 
 if __name__ == '__main__':
-    img_path = 'Example_JPG/Elephant.jpg'
-    Deconvolution().project_down(img_path,1,1)
-    # Convolution use
-    if False:
-        layer_num = 1
-        activations = AlexNet(layer_num).predict('Example_JPG/Elephant.jpg')
-        Deconv_Output(deconv.Deconv_Layer_Model('conv_1').predict(activations)).save_as()
+    img_path = 'Layer2_Strongest_IMG/Layer2_Filter1_Top2.JPEG'
+    Deconvolution().project_down(img_path, layer=2)
 
     # Filter visualization and image output test
     if False:

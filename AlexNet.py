@@ -46,8 +46,8 @@ def AlexNetModel(weights_path=None):
     conv_2 = cross_channel_normalization(name="convpool_1")(conv_2)
     conv_2 = ZeroPadding2D((2, 2))(conv_2)
     conv_2 = merge([
-        Conv2D(128, 5, activation="relu", name='conv_2_' + str(i + 1))(
-            split_tensor(ratio_split=2, id_split=i)(conv_2)
+        Conv2D(128, 5, activation="relu", name='conv_2_' + str(i + 1))
+            (split_tensor(ratio_split=2, id_split=i)(conv_2)
         ) for i in range(2)], mode='concat', concat_axis=1, name="conv_2")
 
     conv_3 = MaxPooling2D((3, 3), strides=(2, 2))(conv_2)
@@ -142,6 +142,7 @@ class AlexNet():
     def predict(self, img_path):
         img = preprocess_image_batch([img_path])
         return self.model.predict(img)
+
 
 
 if __name__ == "__main__":

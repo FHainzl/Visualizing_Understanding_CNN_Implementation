@@ -70,9 +70,8 @@ class Deconvolution():
         b3D = np.expand_dims(b3D, axis=0)
         return b3D
 
-    def project_back(self, input):
+    def predict(self, input):
         starttensor = input - self.bias3D
-        nobias = self.deconv_model.predict(input)
         bias = self.deconv_model.predict(starttensor)
         return bias
 
@@ -114,23 +113,33 @@ class Deconv_Output():
         self.image.save(filename)
 
 
-def visualize_filter(conv_base_model, filter_num):
-    f = filter_num
-    layer_name = 'conv_' + str(filter_num)
-    w = conv_base_model.get_layer('conv_1').get_weights()[0]
-    w = w[:, :, :, f - 1]
-    result = Deconv_Output(w)
-    result.save_as(filename='Filters_Layer1_Visualized/filter{}.JPEG'.format(f))
+def visualize_all_filter_in_layer1(conv_model):
+    w = conv_model.get_layer('conv_1').get_weights()[0]
+    for f in range(96):
+        wf = w[:, :, :, f - 1]
+        #scale = min(abs(100/wf.max()),abs(100/wf.min()))
+        scale = 1000
+        wf *= scale
+        wf[:, :, 0] += 123.68
+        wf[:, :, 1] += 116.779
+        wf[:, :, 2] += 103.939
+        result = Deconv_Output(wf)
+        result.save_as(filename='Filters_Layer1_Visualized/filter{}.JPEG'.format(f+1))
 
 
 if __name__ == '__main__':
     layer_num = 1
     # activations = AlexNet(layer_num).predict('Example_JPG/Elephant.jpg')
 
-    # Show that inverting preprocessing works
-    img_path = 'Example_JPG/Elephant.jpg'
-    array = preprocess_image_batch([img_path])
-    Deconv_Output(array).save_as(filename='array.JPEG')
+    if False:
+        # Visualize first layer filters
+        conv_model = AlexNetModel()
+        visualize_all_filter_in_layer1(conv_model)
+
+        # Show that inverting preprocessing works
+        img_path = 'Example_JPG/Elephant.jpg'
+        array = preprocess_image_batch([img_path])
+        Deconv_Output(array).save_as(filename='array.JPEG')
 
 
     # activation_of_one_filter = np.zeros_like(activations)

@@ -22,20 +22,6 @@ from Decode import decode_classnames_json
 def AlexNetModel(weights_path=None):
     """
         Returns a keras model for AlexNet.
-        BEWARE !! : Since the different convnets have been trained in different settings, they don't take
-        data of the same shape. You should change the arguments of preprocess_image_batch for each CNN :
-        * For AlexNet, the data are of shape (227,227), and the colors in the RGB order (default)
-        * For VGG16 and VGG19, the data are of shape (224,224), and the colors in the BGR order
-        It can also be used to look at the hidden layers of the model.
-        It can be used that way :
-
-        im = preprocess_image_batch(['cat.jpg'])
-        # Test pretrained model
-        model = AlexNet('vgg_16', 'weights/vgg16_weights.h5')
-        sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-        model.compile(optimizer=sgd, loss='categorical_crossentropy')
-        out = model.predict(im)
-
     """
     K.set_image_dim_ordering('th')
     inputs = Input(shape=(3, 227, 227))

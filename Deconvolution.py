@@ -26,52 +26,121 @@ class Deconvolution:
         self.bias3D = DeconvLayers_Instance.bias3D
 
         # This attributes will be filled by 'project_down' method
-        self.activation = None
-        self.current_layer = None
-        self.f = None
+        self.array = None  # Tensor being projected down from feature space to image space
+        self.activation_maxpool = None  # Activation for max_pool layer 1 and 2, needed for switches
+        self.current_layer = None  # Changes as array is passed on
+        self.f = None  # Filter whose activation is projected down
 
     def project_down(self, image_path, layer, f=None):
+        assert type(layer) == int
         self.current_layer = layer
         self.f = f
-        self.activation = self.conv_sub_models[self.current_layer].predict(img_path)
+        self.array = self.conv_sub_models[self.current_layer].predict(image_path)
+        self.activation_maxpool = [None] + [self.conv_sub_models[i].predict(image_path) for i in (1, 2)]
+
         if f:
             self.set_zero_except_maximum()
+
+        if self.current_layer >= 5:
+            self.project_through_split_convolution()
+            # Zerounpadding
+            self.array = self.array[:, :, 1:-1, 1:-1]
+        if self.current_layer >= 4:
+            self.project_through_split_convolution()
+            # Zerounpadding
+            self.array = self.array[:, :, 1:-1, 1:-1]
+        if self.current_layer >= 3:
+            self.project_through_convolution()
+            # Zerounpadding
+            self.array = self.array[:, :, 1:-1, 1:-1]
         if self.current_layer >= 2:
-            self.project_through_split()
+            self.unpool()
+            self.project_through_split_convolution()
+            # Zerounpadding
+            self.array = self.array[:, :, 2:-2, 2:-2]
+        if self.current_layer >= 1:
+            self.unpool()
+            self.project_through_convolution()
+        return self.array
 
-            # Deconv_Output(self.deconv_layers['deconv_1'].predict(self.activation)).save_as()
-            # return self.activation
+    def zero_un_padd(self):
+        # TODO: Implement as method
+        pass
 
-    def project_through_split(self):
+    def project_through_convolution(self):
         cl = self.current_layer
+        assert cl in (1, 3)
+
+        deconv_cl = 'deconv_{}'.format(cl)
+        self.array = self.deconv_layers[deconv_cl].predict(self.array)
+        self.current_layer -= 1
+
+    def project_through_split_convolution(self):
+        cl = self.current_layer
+        assert cl in (2, 4, 5)
 
         # Make sure dimensions are fine
-        assert self.activation.shape[1] == self.channels[cl], 'Channel number incorrect'
+        assert self.array.shape[1] == self.channels[cl], 'Channel number incorrect'
 
         # Split, perform Deconvolution on splits, merge
-        activation_cl_1 = self.activation[:, : self.channels[cl] // 2]
-        activation_cl_2 = self.activation[:, self.channels[cl] // 2:]
+        activation_cl_1 = self.array[:, : self.channels[cl] // 2]
+        activation_cl_2 = self.array[:, self.channels[cl] // 2:]
 
         deconv_cl_1 = 'deconv_{}_1'.format(cl)
         deconv_cl_2 = 'deconv_{}_2'.format(cl)
         projected_activation_cl_1 = self.deconv_layers[deconv_cl_1].predict(activation_cl_1)
         projected_activation_cl_2 = self.deconv_layers[deconv_cl_2].predict(activation_cl_2)
 
-        self.activation = np.concatenate((projected_activation_cl_1, projected_activation_cl_2), axis=1)
-        assert self.activation.shape[1] == self.channels[cl - 1], 'Channel number incorrect'
-
+        self.array = np.concatenate((projected_activation_cl_1, projected_activation_cl_2), axis=1)
+        assert self.array.shape[1] == self.channels[cl - 1], 'Channel number incorrect'
         self.current_layer -= 1
+
+    def unpool(self):
+        cl = self.current_layer
+        assert cl in (1, 2), 'Maxpooling only for layer one and two'
+        activations = self.activation_maxpool[cl]
+
+        # Network parameters for maxpool layers
+        kernel = 3
+        stride = 2
+
+        # TODO: Simplify to last to lines
+        # Change last to lines to assignment once everything works nicely
+        assert cl in (1, 2)
+        if cl == 1:
+            input_shape = (96, 55, 55)
+            output_shape = (96, 27, 27)
+        if cl == 2:
+            input_shape = (256, 27, 27)
+            output_shape = (256, 13, 13)
+        assert activations.shape[1:] == input_shape
+        assert self.array.shape[1:] == output_shape
+
+        reconstructed_activations = np.zeros_like(activations)
+        for f in range(output_shape[0]):
+            for i_out in range(output_shape[1]):
+                for j_out in range(output_shape[2]):
+                    i_in, j_in = i_out * stride, j_out * stride
+                    sub_square = activations[0, f, i_in:i_in + kernel, j_in:j_in + kernel]
+                    max_pos_i, max_pos_j = np.unravel_index(np.nanargmax(sub_square), (kernel, kernel))
+                    array_pixel = self.array[0, f, i_out, j_out]
+
+                    # Since poolings are overlapping, two activations might be reconstructed to same spot
+                    # Keep the higher activation
+                    if reconstructed_activations[0, f, i_in + max_pos_i, j_in + max_pos_j] < array_pixel:
+                        reconstructed_activations[0, f, i_in + max_pos_i, j_in + max_pos_j] = array_pixel
+        self.array = reconstructed_activations
 
     def set_zero_except_maximum(self):
         # Set other layers to zero
-        new_activation = np.zeros_like(self.activation)
-        new_activation[0, self.f - 1] = self.activation[0, self.f - 1]
+        new_array = np.zeros_like(self.array)
+        new_array[0, self.f - 1] = self.array[0, self.f - 1]
 
         # Set other activations in same layer to zero
-        max_index_flat = np.nanargmax(new_activation)
-        max_index = np.unravel_index(max_index_flat, new_activation.shape)
-        self.activation = np.zeros_like(new_activation)
-        self.activation[max_index] = new_activation[max_index]
+        max_index_flat = np.nanargmax(new_array)
+        max_index = np.unravel_index(max_index_flat, new_array.shape)
+        self.array = np.zeros_like(new_array)
+        self.array[max_index] = new_array[max_index]
 
 
 class DeconvLayers:
@@ -213,8 +282,11 @@ def visualize_all_filter_in_layer1(conv_model):
 
 
 if __name__ == '__main__':
-    img_path = 'Layer2_Strongest_IMG/Layer2_Filter1_Top2.JPEG'
-    Deconvolution().project_down(img_path, layer=2)
+    layer = 5
+    f = 10
+    img_path = 'Layer{}_Strongest_IMG/Layer{}_Filter{}_Top1.JPEG'.format(layer,layer,f)
+    array = Deconvolution().project_down(img_path, layer=5, f=1)
+    Deconv_Output(array).save_as()
 
     # Filter visualization and image output test
     if False:

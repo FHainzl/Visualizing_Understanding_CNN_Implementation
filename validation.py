@@ -1,5 +1,4 @@
-from predict import classify_alexnet
-from alexnet import alexnet_model, preprocess_image_batch
+from alexnet import AlexNet
 import os
 import time
 
@@ -42,7 +41,7 @@ def predict_validation_set(model, batch_size=500, break_after_batches=None, fold
                     img_id = '0' + img_id
                 img_batch_locations.append(folder + '/ILSVRC2012_val_000' + img_id + '.JPEG')
 
-            batch_predictions = classify_alexnet(img_batch_locations, model)
+            batch_predictions = AlexNet(model).top_classes(img_batch_locations)
 
             for i in range(batch_size):
                 results_file.write(
@@ -54,23 +53,22 @@ def predict_validation_set(model, batch_size=500, break_after_batches=None, fold
             total_execution = finish[-1] - start[0]
             expected_remaining_time = total_execution / (batch + 1) * (val_set_size // batch_size - batch)
 
-            print("The execution of batch #{} took {} s or {} min.".format(batch + 1, last_execution,
-                                                                           last_execution / 60))
+            print("The execution of batch #{} took {} s".format(batch + 1, last_execution / 60))
             print("This corresponds to a time of {} s per 100 images".format(100 * last_execution / batch_size))
-            print("Total execution time so far: {} s or {} min".format(total_execution, total_execution / 60))
-            print("The extrapolated remaining time is {} s / {} min".format(expected_remaining_time,
-                                                                            expected_remaining_time / 60))
+            print("Total execution time so far: {} min".format(total_execution / 60))
+            print("The extrapolated remaining time is {} min".format(expected_remaining_time / 60))
             print('\n')
 
 
-"""
-Imports labels for ILSVRC2012 Validation set and stores them in list
-Label is stored at array index corresponding to each image's ID
-"""
+
 
 
 def get_labels():
-    result = [None] * 50001
+    """
+    Imports labels for ILSVRC2012 Validation set and stores them in list
+    Label is stored at array index corresponding to each image's ID
+    """
+    result = [None] * (AlexNet.val_set_size+1)
     with open('Data/ILSVRC2012_img_val_labels.txt', 'r') as data:
         for line in data:
             filename = line.split(' ')[0]
@@ -80,12 +78,13 @@ def get_labels():
     return result
 
 
-"""
-Calculate accuracy for Validation set
-"""
+
 
 
 def accuracy_validation_set():
+    """
+    Calculate accuracy for Validation set
+    """
     labels = get_labels()
     filename = 'Data/ILSVRC2012_img_val_predictions.txt'
     total = 0
@@ -103,6 +102,8 @@ def accuracy_validation_set():
 
 if __name__ == '__main__':
     # Generate prediction and save to text file
-    # model = AlexNet()
-    # Predict_ValidationSet(model)
+    if False:
+        model = AlexNet().model
+        predict_validation_set(model)
+    # Print accuracy
     print('Accuracy at Validation Set: {}%'.format(accuracy_validation_set()))

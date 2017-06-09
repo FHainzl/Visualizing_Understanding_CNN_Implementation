@@ -1,8 +1,11 @@
-import numpy as np
 from keras.layers.core import Lambda
 from keras import backend as K
-from keras.engine import Layer
 
+"""
+Both layers from
+https://github.com/heuritech/convnets-keras/blob/master/convnetskeras/convnets.py
+and only slightly modified to work with TF backend as suggested by GitHub user 
+"""
 
 def cross_channel_normalization(alpha=1e-4, k=2, beta=0.75, n=5, **kwargs):
     # This is the function used for cross channel normalization in the original Alexnet

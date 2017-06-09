@@ -99,7 +99,7 @@ class Deconvolution:
         kernel = 3
         stride = 2
 
-        # TODO: Simplify to last to lines
+        # TODO: Simplify to last 2 lines
         # Change last to lines to assignment once everything works nicely
         assert cl in (1, 2)
         if cl == 1:
@@ -131,24 +131,16 @@ class Deconvolution:
         new_array = np.zeros_like(self.array)
         new_array[0, self.f - 1] = self.array[0, self.f - 1]
 
-        # Set other activations in same layer to zero
+        #Set other activations in same layer to zero
         max_index_flat = np.nanargmax(new_array)
         max_index = np.unravel_index(max_index_flat, new_array.shape)
         self.array = np.zeros_like(new_array)
         self.array[max_index] = new_array[max_index]
 
 
-class Weights:
-    def __init__(self, w, b):
-        assert type(w) == np.ndarray
-        assert type(b) == np.ndarray
-        self.w = w
-        self.b = b
-        self.tuple = (w, b)
-
-
 class DeconvOutput:
-    def __init__(self, unarranged_array):  # Takes output of DeconvNet
+    def __init__(self, unarranged_array, contrast=1):  # Takes output of DeconvNet
+        self.contrast = contrast
         self.array = self._rearrange_array(unarranged_array)
         self.image = None
 
@@ -160,6 +152,8 @@ class DeconvOutput:
             assert unarranged_array.shape[0] == 1
             unarranged_array = unarranged_array[0, :, :, :]  # Eliminate batch size dimension
             unarranged_array = np.moveaxis(unarranged_array, 0, -1)  # Put channels last
+
+            unarranged_array *= self.contrast
             # Undo sample mean subtraction
             unarranged_array[:, :, 0] += 123.68
             unarranged_array[:, :, 1] += 116.779
@@ -199,11 +193,11 @@ def visualize_all_filters_in_layer1(conv_model):
 
 
 if __name__ == '__main__':
-    layer = 4
-    f = 80
-    img_path = 'Layer{}_Strongest_IMG/Layer{}_Filter{}_Top1.JPEG'.format(layer, layer, f)
+    layer = 5
+    f = 155
+    img_path = 'Layer{}_Strongest_max_IMG/Layer{}_Filter{}_Top1.JPEG'.format(layer, layer, f)
     array = Deconvolution().project_down(img_path, layer, f)
-    DeconvOutput(array).save_as()
+    DeconvOutput(array, contrast=5).save_as()
 
     # Filter visualization and image output test
     if False:
@@ -215,28 +209,3 @@ if __name__ == '__main__':
         img_path = 'Example_JPG/Elephant.jpg'
         array = preprocess_image_batch([img_path])
         DeconvOutput(array).save_as(filename='array.JPEG')
-
-
-        # activation_of_one_filter = np.zeros_like(activations)
-        # activation_of_one_filter[:, f - 1, :, :] = activations[:, f - 1, :, :]
-        # deconv = Deconvolution(conv_base_model)
-        # deconv.project_back(activations)
-        # result = Deconv_Output(deconv.project_back(activations))
-        # result.save_as()
-
-
-        # conv_base_model = AlexNet()
-        # conv_model = Model(inputs=conv_base_model.input, outputs=conv_base_model.get_layer('conv_1').output)
-        # deconv_model = Deconv_Net(conv_base_model)
-        # # deconv_model.summary()
-        # im = preprocess_image_batch(['Layer1_Strongest_IMG/Layer1_Filter{}_Top7.JPEG'.format(filter)])
-        # activation = conv_model.predict(im)
-        # # filter = 1
-        # # activation_of_one_filter = np.zeros_like(activation)
-        # # activation_of_one_filter[:, filter - 1, :, :] = activation[:, filter - 1, :, :]
-        # # # activation_of_one_filter = activation
-        # # max_activation_of_one_filter = np.zeros_like(activation)
-        # # max_loc = activation_of_one_filter.argmax()
-        # # max_loc = np.unravel_index(max_loc,activation.shape)
-        # # max_activation_of_one_filter[0+max_loc] = activation_of_one_filter.max()
-        # result = deconv_model.predict(activation)

@@ -135,6 +135,8 @@ class AlexNet():
 
     val_set_size = 50000
     filter_per_layer = {1: 96, 2: 256, 3: 384, 4: 384, 5: 256}
+    conv_layer_names = ['conv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
+    deconv_layer_names = ['deconv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
 
     def __init__(self, highest_layer_num=None, base_model=None):
         self.highest_layer_num = highest_layer_num

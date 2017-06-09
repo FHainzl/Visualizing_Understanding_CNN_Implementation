@@ -4,11 +4,18 @@ from keras.utils.layer_utils import convert_all_kernels_in_model
 from keras import backend as K
 from keras.optimizers import SGD
 
+from alexnet import AlexNet
+
 import numpy as np
 
+
 class DeconvLayers:
-    conv_layer_names = ['conv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
-    deconv_layer_names = ['deconv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
+    """
+    Extract parameters from alexnet and create decnvolutional layers
+    """
+
+    conv_layer_names = AlexNet.conv_layer_names
+    deconv_layer_names = AlexNet.deconv_layer_names
 
     def __init__(self, conv_base_model):
 
@@ -43,10 +50,6 @@ class DeconvLayers:
                                      name=de_layer_name)(inputs)
 
         m = Model(input=inputs, output=prediction)
-        convert_all_kernels_in_model(m)
-
-        sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-        m.compile(optimizer=sgd, loss='mse')
 
         assert m.get_layer(de_layer_name).get_weights()[0].shape == w.shape
         m.get_layer(de_layer_name).set_weights([w])
@@ -64,10 +67,16 @@ class DeconvLayers:
         for layer_name, layer in self.conv_layers.items():
             w = layer.get_weights()[0]
             b = layer.get_weights()[1]
-            weights_dict[layer_name] = W(w, b)
+            weights_dict[layer_name] = Weights(w, b)
         return weights_dict
 
     def init_bias3D_dict(self):
+        # TODO:
+        # That seems like a wasteful way to do element-wise subtraction.
+        """
+        Arrange bias in 3D shape, such that it can be subtracted from features tensor        
+        """
+
         bias_dict = {}
         for layer_name, layer in self.conv_layers.items():
             b3D = np.zeros(layer.output_shape[1:])
@@ -82,3 +91,12 @@ class DeconvLayers:
         for deconv_layer_name in self.deconv_layer_names:
             deconv_layers[deconv_layer_name] = self.deconv_layer_model(deconv_layer_name[2:])
         return deconv_layers
+
+
+class Weights:
+    def __init__(self, w, b):
+        assert type(w) == np.ndarray
+        assert type(b) == np.ndarray
+        self.w = w
+        self.b = b
+        self.tuple = (w, b)

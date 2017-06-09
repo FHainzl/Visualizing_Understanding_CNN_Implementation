@@ -1,15 +1,15 @@
 from VGG16 import VGG16
 from keras.applications.vgg16 import preprocess_input as vgg16_preprocess_input
 
-from AlexNet import AlexNetModel, preprocess_image_batch
+from alexnet import alexnet_model, preprocess_image_batch
 
 import numpy as np
-from Decode import decode_classnames_json, decode_classnumber
+from decode_predictions import decode_classnames_json, decode_classnumber
 
 from keras.preprocessing import image as keras_image
 
 
-def Classify_VGG16(img_path, model=None, printing=False):
+def classify_VGG16(img_path, model=None, printing=False):
     if model is None:
         model = VGG16(include_top=True, weights='imagenet')
 
@@ -31,9 +31,9 @@ def Classify_VGG16(img_path, model=None, printing=False):
     return preds
 
 
-def Classify_AlexNet(img_path, model=None, printing=False):
+def classify_alexnet(img_path, model=None, printing=False):
     if model is None:
-        model = AlexNetModel()
+        model = alexnet_model()
 
     # Convert img_path to iterable if necessary
     if type(img_path) is str:
@@ -55,12 +55,12 @@ def Classify_AlexNet(img_path, model=None, printing=False):
     return preds
 
 
-def Print_Top5(img_path, CNN='AlexNet'):
+def print_top5(img_path, CNN='AlexNet'):
     assert CNN in ('AlexNet', 'VGG16')
     if CNN == 'AlexNet':
-        Classify_AlexNet(img_path,printing=True)
+        classify_alexnet(img_path, printing=True)
     else:
-        Classify_VGG16(img_path,printing=True)
+        classify_VGG16(img_path, printing=True)
 
 
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # Print_Top5(testimage, 'VGG16')
 
     testimages = ['Example_JPG/Cabrio.jpg', 'Example_JPG/RoadBike.jpg', 'Example_JPG/Trump.jpg']
-    model = AlexNetModel()
-    preds = (Classify_AlexNet(testimages,model))
+    model = alexnet_model()
+    preds = (classify_alexnet(testimages, model))
     for pred in preds:
         print(pred)

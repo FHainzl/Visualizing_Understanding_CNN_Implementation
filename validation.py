@@ -1,11 +1,11 @@
-from Classify import Classify_AlexNet
-from AlexNet import AlexNetModel, preprocess_image_batch
+from predict import classify_alexnet
+from alexnet import alexnet_model, preprocess_image_batch
 import os
 import time
 
 """
 Determine Accuracy of Top5 predictions on Validation set.
-This is NOT an honest test accuracy, because validation can be used in training. Test set labels are not available.
+This is NOT an honest test accuracy, because validation can be used in training. Labels of test set are not available.
 """
 
 """
@@ -13,8 +13,8 @@ Predict Top5 most likely classes for images in Validation Set and save them to t
 """
 
 
-def Predict_ValidationSet(model, batch_size=500, break_after_batches=None, folder='ILSVRC2012_img_val',
-                          filename='Data/ILSVRC2012_img_val_predictions.txt'):
+def predict_validation_set(model, batch_size=500, break_after_batches=None, folder='ILSVRC2012_img_val',
+                           filename='Data/ILSVRC2012_img_val_predictions.txt'):
     val_set_size = 50000
 
     # Delete file if exists:
@@ -42,7 +42,7 @@ def Predict_ValidationSet(model, batch_size=500, break_after_batches=None, folde
                     img_id = '0' + img_id
                 img_batch_locations.append(folder + '/ILSVRC2012_val_000' + img_id + '.JPEG')
 
-            batch_predictions = Classify_AlexNet(img_batch_locations, model)
+            batch_predictions = classify_alexnet(img_batch_locations, model)
 
             for i in range(batch_size):
                 results_file.write(
@@ -85,7 +85,7 @@ Calculate accuracy for Validation set
 """
 
 
-def Accuracy_ValidationSet():
+def accuracy_validation_set():
     labels = get_labels()
     filename = 'Data/ILSVRC2012_img_val_predictions.txt'
     total = 0
@@ -105,4 +105,4 @@ if __name__ == '__main__':
     # Generate prediction and save to text file
     # model = AlexNet()
     # Predict_ValidationSet(model)
-    print('Accuracy at Validation Set: {}%'.format(Accuracy_ValidationSet()))
+    print('Accuracy at Validation Set: {}%'.format(accuracy_validation_set()))

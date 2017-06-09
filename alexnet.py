@@ -15,11 +15,11 @@ from keras.utils import plot_model
 import numpy as np
 from scipy.misc import imread, imresize
 
-from AlexNet_AdditionalLayers import split_tensor, cross_channel_normalization
-from Decode import decode_classnames_json
+from alexnet_additional_layers import split_tensor, cross_channel_normalization
+from decode_predictions import decode_classnames_json
 
 
-def AlexNetModel(weights_path=None):
+def alexnet_model(weights_path=None):
     """
         Returns a keras model for AlexNet.
     """
@@ -116,7 +116,7 @@ def preprocess_image_batch(image_paths, img_size=(256, 256), crop_size=(227, 227
 class AlexNet():
     def __init__(self, highest_layer_num=None, base_model = None):
         self.highest_layer_num = highest_layer_num
-        self.base_model = base_model if base_model else AlexNetModel() # If no base model specified, use AlexNet
+        self.base_model = base_model if base_model else alexnet_model() # If no base model specified, use AlexNet
         self.model = self.sub_model() if highest_layer_num else self.base_model # Use full network if no highest_layer
 
     def sub_model(self):
@@ -134,7 +134,7 @@ class AlexNet():
 if __name__ == "__main__":
     # Test pre-trained model
     im = preprocess_image_batch(['Example_JPG/Elephant.jpg'])
-    model = AlexNetModel()
+    model = alexnet_model()
     # plot_model(model, to_file='model.png',show_shapes=True)
     # print(model.summary())
     out = model.predict(im)

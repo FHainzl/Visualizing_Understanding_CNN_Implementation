@@ -1,4 +1,4 @@
-from AlexNet import AlexNetModel, preprocess_image_batch
+from alexnet import alexnet_model, preprocess_image_batch
 
 from keras.models import Model
 from shutil import copyfile, rmtree
@@ -9,7 +9,7 @@ import time
 import pandas
 
 
-def Get_Activations(layer_num, base_model, folder='ILSVRC2012_img_val'):
+def get_activations(layer_num, base_model, folder='ILSVRC2012_img_val'):
     print('Working on layer ' + str(layer_num))
     val_set_size = 50000
     filter_per_layer = {1: 96, 2: 256, 3: 384, 4: 384, 5: 256}
@@ -83,7 +83,7 @@ def Get_Activations(layer_num, base_model, folder='ILSVRC2012_img_val'):
     np.savetxt(matrix_filename, activations, delimiter=',')
 
 
-def Find_Strongest_Images(layer_num, top=9):
+def find_strongest_image(layer_num, top=9):
     filter_per_layer = {1: 96, 2: 256, 3: 384, 4: 384, 5: 256}
     filters = filter_per_layer[layer_num]
 
@@ -119,12 +119,12 @@ def Find_Strongest_Images(layer_num, top=9):
 
 
 if __name__ == '__main__':
-    base_model = AlexNetModel()
+    base_model = alexnet_model()
     # Get activations and copy maximally activating images to folder
     for i in (5, 4, 3, 2, 1):
-        Get_Activations(i, base_model)
+        get_activations(i, base_model)
         start = time.time()
-        Find_Strongest_Images(i)
+        find_strongest_image(i)
         print("Copied images in {} s".format(time.time() - start))
 
     # Just making sure...

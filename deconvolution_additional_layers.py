@@ -11,7 +11,7 @@ import numpy as np
 
 class DeconvLayers:
     """
-    Extract parameters from alexnet and create decnvolutional layers
+    Create deconvolutional layers with parameters extracted from alexnet
     """
 
     conv_layer_names = AlexNet.conv_layer_names
@@ -71,8 +71,6 @@ class DeconvLayers:
         return weights_dict
 
     def init_bias3D_dict(self):
-        # TODO:
-        # That seems like a wasteful way to do element-wise subtraction.
         """
         Arrange bias in 3D shape, such that it can be subtracted from features tensor        
         """

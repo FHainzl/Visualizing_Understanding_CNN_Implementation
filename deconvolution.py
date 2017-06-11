@@ -230,11 +230,8 @@ def visualize_top_images(layer, f, constrast):
     conv_base_model = AlexNet().model
     get_from_folder = 'Layer{}_Strongest_max_IMG'.format(layer)
     save_to_folder = 'Layer{}_Projections_and_Images'.format(layer)
-    try:
-        rmtree(save_to_folder)
-    except:
-        pass
-    os.makedirs(save_to_folder)
+    if not os.path.exists(save_to_folder):
+        os.makedirs(save_to_folder)
 
     for t in range(1, 10):
         file_name = '/Layer{}_Filter{}_Top{}.JPEG'.format(layer, f, t)
@@ -246,4 +243,4 @@ def visualize_top_images(layer, f, constrast):
 
 
 if __name__ == '__main__':
-    visualize_top_images(layer=2, f=194, constrast=10)
+    visualize_top_images(layer=5, f=194, constrast=25)

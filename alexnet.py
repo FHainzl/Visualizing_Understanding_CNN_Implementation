@@ -179,9 +179,9 @@ if __name__ == "__main__":
     print(decode_classnumber(out_wrapper))
 
     # Plot and print information about model
-    plot_and_print = False
+    plot_and_print = True
     if plot_and_print:
-        plot_model(model, to_file='model.png', show_shapes=True)
+        plot_model(model, to_file='alexnet_model.png', show_shapes=True)
         print(model.summary())
 
     testimages = ['Example_JPG/Elephant.jpg', 'Example_JPG/RoadBike.jpg', 'Example_JPG/Trump.jpg']

@@ -6,6 +6,5 @@ Convolutional Networks" by Matthew D. Zeiler and Rob Fergus [https://www.cs.nyu.
 The pre-trained AlexNet is from:
 https://github.com/heuritech/convnets-keras
 
-To run: Add the ILSVRC2012 validation set in a folder named "ILSVRC2012_img_val" (6.3GB), run activations.py (this may take a considerable amount of time) and then run deconvolution.py, to project the maxmial activation of a filter back to image space. 
+To run: Downloatd the ILSVRC2012 validation set from http://www.image-net.org/challenges/LSVRC/2012/nonpub-downloads (6.3GB) in folder "ILSVRC2012_img_val", run activations.py (this may take a considerable amount of time) and then run deconvolution.py with a certain layer and filter as arguments to project the maxmial activation of a filter back to image space. 
 
-Deconvolution.py is still a work-in-progress.

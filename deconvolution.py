@@ -40,21 +40,21 @@ class Deconvolution:
             self._set_zero_except_maximum()
 
         if self.current_layer >= 5:
-            self._project_through_split_convolution()  # Deconv (splitted)
-            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
+            self._project_through_split_convolution()   # Deconv (splitted)
+            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
         if self.current_layer >= 4:
-            self._project_through_split_convolution()  # Deconv (splitted)
-            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
+            self._project_through_split_convolution()   # Deconv (splitted)
+            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
         if self.current_layer >= 3:
-            self._project_through_convolution()  # Deconv
-            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
-            self._unpool()  # Unpooling
+            self._project_through_convolution()         # Deconv
+            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
+            self._unpool()                              # Unpooling
         if self.current_layer >= 2:
-            self._project_through_split_convolution()  # Deconv (splitted)
-            self.array = self.array[:, :, 2:-2, 2:-2]  # Unpadding
-            self._unpool()  # Unpooling
+            self._project_through_split_convolution()   # Deconv (splitted)
+            self.array = self.array[:, :, 2:-2, 2:-2]   # Unpadding
+            self._unpool()                              # Unpooling
         if self.current_layer >= 1:
-            self._project_through_convolution()  # Deconv
+            self._project_through_convolution()         # Deconv
         return self.array
 
     def _project_through_convolution(self):
@@ -249,8 +249,6 @@ def visualize_top_images(layer, f, constrast):
             os.remove(original_filename)
         DeconvOutput(original_image).save_as(filename=original_filename)
 
-        # copyfile(get_from_folder + file_name, save_to_folder + file_name)
-
 
 if __name__ == '__main__':
-    visualize_top_images(layer=3, f=191, constrast=15)
+    visualize_top_images(layer=5, f=120, constrast=25)

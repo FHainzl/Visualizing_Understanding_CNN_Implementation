@@ -40,21 +40,21 @@ class Deconvolution:
             self._set_zero_except_maximum()
 
         if self.current_layer >= 5:
-            self._project_through_split_convolution()   # Deconv (splitted)
-            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
+            self._project_through_split_convolution()  # Deconv (splitted)
+            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
         if self.current_layer >= 4:
-            self._project_through_split_convolution()   # Deconv (splitted)
-            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
+            self._project_through_split_convolution()  # Deconv (splitted)
+            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
         if self.current_layer >= 3:
-            self._project_through_convolution()         # Deconv
-            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
-            self._unpool()                              # Unpooling
+            self._project_through_convolution()  # Deconv
+            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
+            self._unpool()  # Unpooling
         if self.current_layer >= 2:
-            self._project_through_split_convolution()   # Deconv (splitted)
-            self.array = self.array[:, :, 2:-2, 2:-2]   # Unpadding
-            self._unpool()                              # Unpooling
+            self._project_through_split_convolution()  # Deconv (splitted)
+            self.array = self.array[:, :, 2:-2, 2:-2]  # Unpadding
+            self._unpool()  # Unpooling
         if self.current_layer >= 1:
-            self._project_through_convolution()         # Deconv
+            self._project_through_convolution()  # Deconv
         return self.array
 
     def _project_through_convolution(self):
@@ -163,7 +163,7 @@ class Deconvolution:
 
 
 class DeconvOutput:
-    def __init__(self, unarranged_array, contrast):  # Takes output of DeconvNet
+    def __init__(self, unarranged_array, contrast=None):  # Takes output of DeconvNet
         self.contrast = contrast
         self.array = self._rearrange_array(unarranged_array)
         self.image = None
@@ -236,11 +236,21 @@ def visualize_top_images(layer, f, constrast):
     for t in range(1, 10):
         file_name = '/Layer{}_Filter{}_Top{}.JPEG'.format(layer, f, t)
 
-        array = Deconvolution(conv_base_model).project_down(get_from_folder + file_name, layer, f)
-        DeconvOutput(array, constrast).save_as(save_to_folder,
-                                               '/Layer{}_Filter{}_Top{}_Activations.JPEG'.format(layer, f, t))
-        copyfile(get_from_folder + file_name, save_to_folder + file_name)
+        projection = Deconvolution(conv_base_model).project_down(get_from_folder + file_name, layer, f)
+        original_image = preprocess_image_batch(get_from_folder + file_name)
+
+        activation_filename = save_to_folder + '/Layer{}_Filter{}_Top{}_Activations.JPEG'.format(layer, f, t)
+        if os.path.exists(activation_filename):
+            os.remove(activation_filename)
+        DeconvOutput(projection, constrast).save_as(filename=activation_filename)
+
+        original_filename = save_to_folder + '/Layer{}_Filter{}_Top{}.JPEG'.format(layer, f, t)
+        if os.path.exists(original_filename):
+            os.remove(original_filename)
+        DeconvOutput(original_image).save_as(filename=original_filename)
+
+        # copyfile(get_from_folder + file_name, save_to_folder + file_name)
 
 
 if __name__ == '__main__':
-    visualize_top_images(layer=5, f=194, constrast=25)
+    visualize_top_images(layer=3, f=191, constrast=15)

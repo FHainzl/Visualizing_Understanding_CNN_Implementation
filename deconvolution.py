@@ -40,21 +40,21 @@ class Deconvolution:
             self._set_zero_except_maximum()
 
         if self.current_layer >= 5:
-            self._project_through_split_convolution()   # Deconv (splitted)
-            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
+            self._project_through_split_convolution()  # Deconv (splitted)
+            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
         if self.current_layer >= 4:
-            self._project_through_split_convolution()   # Deconv (splitted)
-            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
+            self._project_through_split_convolution()  # Deconv (splitted)
+            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
         if self.current_layer >= 3:
-            self._project_through_convolution()         # Deconv
-            self.array = self.array[:, :, 1:-1, 1:-1]   # Unpadding
-            self._unpool()                              # Unpooling
+            self._project_through_convolution()  # Deconv
+            self.array = self.array[:, :, 1:-1, 1:-1]  # Unpadding
+            self._unpool()  # Unpooling
         if self.current_layer >= 2:
-            self._project_through_split_convolution()   # Deconv (splitted)
-            self.array = self.array[:, :, 2:-2, 2:-2]   # Unpadding
-            self._unpool()                              # Unpooling
+            self._project_through_split_convolution()  # Deconv (splitted)
+            self.array = self.array[:, :, 2:-2, 2:-2]  # Unpadding
+            self._unpool()  # Unpooling
         if self.current_layer >= 1:
-            self._project_through_convolution()         # Deconv
+            self._project_through_convolution()  # Deconv
         return self.array
 
     def _project_through_convolution(self):
@@ -212,15 +212,28 @@ def visualize_all_filters_in_layer1():
     conv_model = AlexNet().model
     w = conv_model.get_layer('conv_1').get_weights()[0]
     for f in range(96):
-        wf = w[:, :, :, f - 1]
+        wf = w[:, :, :, f]
         # scale = min(abs(100/wf.max()),abs(100/wf.min()))
-        scale = 1000
+        scale = 500
         wf *= scale
         wf[:, :, 0] += 123.68
         wf[:, :, 1] += 116.779
         wf[:, :, 2] += 103.939
         result = DeconvOutput(wf)
         result.save_as(filename='Filters_Layer1_Visualized/filter{}.JPEG'.format(f + 1))
+
+
+def project_complete_image(layer, file_name='Example_JPG/Elephant.jpg'):
+    conv_base_model = AlexNet().model
+
+    projection = Deconvolution(conv_base_model).project_down(file_name, layer=layer, use_bias=True)
+    original_image = preprocess_image_batch(file_name)
+
+    activation_filename = 'test.JPEG'
+    DeconvOutput(projection).save_as(filename=activation_filename)
+
+    original_filename = 'test_original.JPEG'
+    DeconvOutput(original_image).save_as(filename=original_filename)
 
 
 def visualize_top_images(layer, f, constrast):
@@ -251,4 +264,4 @@ def visualize_top_images(layer, f, constrast):
 
 
 if __name__ == '__main__':
-    visualize_top_images(layer=5, f=120, constrast=25)
+    visualize_top_images(layer=1, f=10, constrast=None)

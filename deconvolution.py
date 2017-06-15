@@ -264,4 +264,4 @@ def visualize_top_images(layer, f, constrast):
 
 
 if __name__ == '__main__':
-    visualize_top_images(layer=1, f=10, constrast=None)
+    visualize_top_images(layer=5, f=4, constrast=13)

@@ -72,8 +72,8 @@ def alexnet_model(weights_path=None):
     # This changes convolutional kernels from TF to TH, great accuracy improvement
     convert_all_kernels_in_model(m)
 
-    #sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    #m.compile(optimizer=sgd, loss='mse')
+    # sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+    # m.compile(optimizer=sgd, loss='mse')
 
     return m
 
@@ -134,7 +134,7 @@ class AlexNet():
     """
 
     val_set_size = 50000
-    filter_per_layer = {1: 96, 2: 256, 3: 384, 4: 384, 5: 256}
+    channels = [3, 96, 256, 384, 384, 256]  # Corresponds to the number of filters in convolution (except first entry)
     conv_layer_names = ['conv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
     deconv_layer_names = ['deconv_' + id for id in ('1', '2_1', '2_2', '3', '4_1', '4_2', '5_1', '5_2')]
 
@@ -156,9 +156,9 @@ class AlexNet():
         img = preprocess_image_batch(img_path)
         return self.model.predict(img)
 
-    def top_classes(self,img_path,top=5):
+    def top_classes(self, img_path, top=5):
         preds = self.predict(img_path)
-        return decode_classnumber(preds,top)
+        return decode_classnumber(preds, top)
 
 
 if __name__ == "__main__":

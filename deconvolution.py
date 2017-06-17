@@ -1,15 +1,17 @@
 from alexnet import AlexNet, alexnet_model, preprocess_image_batch
-
+from activations import get_strongest_filter, get_strongest_filters
+from validation import get_path_from_id
 from deconvolution_additional_layers import DeconvLayers
 
 from PIL import Image
 import numpy as np
 import os
+from random import randint
 from shutil import copyfile, rmtree
 
 
 class Deconvolution:
-    channels = [3, 96, 256, 384, 384, 256]  # Corresponds to the number of filters in convolution
+    channels = AlexNet.channels
 
     def __init__(self, conv_base_model=None):
         # Set convolutional model and submodels, which get activations after given layer
@@ -263,5 +265,158 @@ def visualize_top_images(layer, f, constrast):
         DeconvOutput(original_image).save_as(filename=original_filename)
 
 
+def bounding_box(projection):
+    combined_channels = np.sum(projection[0], 0)
+    assert combined_channels.shape[0] == 227
+    assert combined_channels.shape[1] == 227
+    arg_positions = np.argwhere(combined_channels)
+    (xstart, ystart), (xstop, ystop) = arg_positions.min(0), arg_positions.max(0)
+
+    # x_diff = xstop-xstart
+    # y_diff = ystop-ystart
+    # diff = (x_diff + y_diff)//2
+    # xstart = (xstart+xstop)//2-diff
+    # xstop = (xstart+xstop)//2-diff
+
+    return (xstart, xstop, ystart, ystop)
+
+
+def project_top_layer_filters(img_id=None, deconv_base_model=None):
+    if img_id is None:
+        img_id = randint(1, 50000)
+    if deconv_base_model is None:
+        deconv_base_model = Deconvolution(AlexNet().model)
+
+    path = get_path_from_id(img_id)
+    save_to_folder = 'MultipleFilters'
+
+    projections = []
+    box_borders = []
+    layer = 5
+    for max_filter in get_strongest_filters(img_id,layer,top=3):
+        projection = deconv_base_model.project_down(path, layer, max_filter)
+
+        # Increase Contrast
+        percentile = 99
+        max_val = np.percentile(projection, percentile)
+        projection *= (20 / max_val)
+        box_borders.append(bounding_box(projection))
+        projections.append(projection)
+
+    superposed_projections = np.maximum.reduce(projections)
+    #superposed_projections = sum(projections)
+    assert superposed_projections.shape == projections[0].shape
+    # for xstart, xstop, ystart, ystop in box_borders:
+    #     if xstart != 0:
+    #         superposed_projections[0, :, xstart, ystart:ystop] = -100
+    #     if xstop != 226:
+    #         superposed_projections[0, :, xstop, ystart:ystop] = -100
+    #     if ystart != 0:
+    #         superposed_projections[0, :, xstart:xstop, ystart] = -100
+    #     if ystop != 226:
+    #         superposed_projections[0, :, xstart:xstop, ystop] = -100
+    DeconvOutput(superposed_projections).save_as(save_to_folder, '{}_activations.JPEG'.format(img_id))
+
+    original_image = preprocess_image_batch(path)
+    for xstart, xstop, ystart, ystop in box_borders:
+        if xstart != 0:
+            original_image[0, :, xstart, ystart:ystop] = -100
+            original_image[0, :, xstart + 1, ystart+1:ystop-1] = 100
+            original_image[0, :, xstart + 2, ystart+2:ystop-2] = -100
+        if xstop != 226:
+            original_image[0, :, xstop - 2, ystart+2:ystop-2] = -100
+            original_image[0, :, xstop - 1, ystart+1:ystop-1] = 100
+            original_image[0, :, xstop, ystart:ystop] = -100
+        if ystart != 0:
+            original_image[0, :, xstart:xstop, ystart] = -100
+            original_image[0, :, xstart+1:xstop-1, ystart + 1] = 100
+            original_image[0, :, xstart+2:xstop-2, ystart + 2] = 100
+        if ystop != 226:
+            original_image[0, :, xstart+2:xstop-2, ystop - 2] = -100
+            original_image[0, :, xstart+1:xstop-1, ystop - 1] = 100
+            original_image[0, :, xstart:xstop, ystop] = -100
+    DeconvOutput(original_image).save_as(save_to_folder, '{}.JPEG'.format(img_id))
+
+
+def project_multiple_layer_filters(img_id=None, deconv_base_model=None):
+    if img_id is None:
+        img_id = randint(1, 50000)
+    if deconv_base_model is None:
+        deconv_base_model = Deconvolution(AlexNet().model)
+
+    path = get_path_from_id(img_id)
+    save_to_folder = 'MultipleLayers'
+
+    projections = []
+    box_borders = []
+    contrast = [None, 1, 3, 7, 13, 22]
+    for layer in (1, 2, 3, 4, 5):
+        assert get_strongest_filter(img_id, layer) == get_strongest_filters(img_id, layer, top=1)
+        max_filter = get_strongest_filter(img_id, layer)
+        if layer == 1: print(img_id, ': ', max_filter)
+        projection = deconv_base_model.project_down(path, layer, max_filter)
+
+        if layer != 1:
+            # Increase Contrast
+            percentile = 99
+            # max_val = np.nanargmax(unarranged_array)
+            max_val = np.percentile(projection, percentile)
+            projection *= (contrast[layer] / max_val)
+        else:
+            projection *= 0.3
+
+        box_borders.append(bounding_box(projection))
+
+        # x_diff[layer].append(box_borders[-1][1] - box_borders[-1][0])
+        # y_diff[layer].append(box_borders[-1][3] - box_borders[-1][2])
+
+        projections.append(projection)
+    superposed_projections = np.maximum.reduce(projections)
+    #superposed_projections = sum(projections)
+    assert superposed_projections.shape == projections[0].shape
+    # for xstart, xstop, ystart, ystop in box_borders:
+    #     if xstart != 0:
+    #         superposed_projections[0, :, xstart, ystart:ystop] = -100
+    #     if xstop != 226:
+    #         superposed_projections[0, :, xstop, ystart:ystop] = -100
+    #     if ystart != 0:
+    #         superposed_projections[0, :, xstart:xstop, ystart] = -100
+    #     if ystop != 226:
+    #         superposed_projections[0, :, xstart:xstop, ystop] = -100
+    DeconvOutput(superposed_projections).save_as(save_to_folder, '{}_activations.JPEG'.format(img_id))
+
+    original_image = preprocess_image_batch(path)
+    for xstart, xstop, ystart, ystop in box_borders:
+        if xstart != 0:
+            original_image[0, :, xstart, ystart:ystop] = -100
+            original_image[0, :, xstart + 1, ystart+1:ystop-1] = 100
+            original_image[0, :, xstart + 2, ystart+2:ystop-2] = -100
+        if xstop != 226:
+            original_image[0, :, xstop - 2, ystart+2:ystop-2] = -100
+            original_image[0, :, xstop - 1, ystart+1:ystop-1] = 100
+            original_image[0, :, xstop, ystart:ystop] = -100
+        if ystart != 0:
+            original_image[0, :, xstart:xstop, ystart] = -100
+            original_image[0, :, xstart+1:xstop-1, ystart + 1] = 100
+            original_image[0, :, xstart+2:xstop-2, ystart + 2] = 100
+        if ystop != 226:
+            original_image[0, :, xstart+2:xstop-2, ystop - 2] = -100
+            original_image[0, :, xstart+1:xstop-1, ystop - 1] = 100
+            original_image[0, :, xstart:xstop, ystop] = -100
+
+    DeconvOutput(original_image).save_as(save_to_folder, '{}.JPEG'.format(img_id))
+
+
 if __name__ == '__main__':
-    visualize_top_images(layer=5, f=4, constrast=13)
+    deconv_base_model = Deconvolution(AlexNet().model)
+    for _ in range(15):
+        project_top_layer_filters(deconv_base_model=deconv_base_model)
+        project_multiple_layer_filters(deconv_base_model=deconv_base_model)
+        #project_multiple_layer_filters(deconv_base_model=deconv_base_model)
+        # for img_id in (14913, 31634, 48518,37498,2254):
+        #     project_multiple_filters(img_id=img_id, deconv_base_model= deconv_base_model)
+        # for img_id in (31977):
+        #     project_top_layer_filters(img_id=img_id, deconv_base_model= deconv_base_model)
+
+    pass
+    # visualize_top_images(layer=5, f=4, constrast=13)

@@ -1,13 +1,11 @@
-from alexnet import alexnet_model
-
+from alexnet import AlexNet  # For hyper-parameters
+from validation import get_path_from_id
 from shutil import copyfile, rmtree
 
 import numpy as np
 import os
 import time
 import pandas
-
-from alexnet import AlexNet  # For hyper-parameters
 
 
 def get_activations(layer_num, base_model, mode='summation', folder='ILSVRC2012_img_val'):
@@ -22,8 +20,8 @@ def get_activations(layer_num, base_model, mode='summation', folder='ILSVRC2012_
 
     assert mode in ('summation', 'maximum'), "Mode has to be either 'summation' or 'maximum'"
 
-    print('Working on layer {}\N'.format(layer_num))
-    filters = AlexNet.filter_per_layer[layer_num]
+    print('Working on layer {}\n'.format(layer_num))
+    filters = AlexNet.channels[layer_num]
     activation_matrix_filename = 'Data/Strongest_Activation_Layer{}.csv'.format(layer_num)
 
     # Init array to save activations, Filter and image numbers start with 1!!
@@ -109,7 +107,7 @@ def find_strongest_image(layer_num, top=9, folder='ILSVRC2012_img_val'):
     :param folder: Specify folder that contains validation images
     """
 
-    filters = AlexNet.filter_per_layer[layer_num]
+    filters = AlexNet.channels[layer_num]
 
     activation_matrix_filename = 'Data/Strongest_Activation_Layer{}.csv'.format(layer_num)
     read_from_folder = folder
@@ -141,9 +139,67 @@ def find_strongest_image(layer_num, top=9, folder='ILSVRC2012_img_val'):
             copyfile(copy_from, copy_to)
 
 
+def get_strongest_filter(img_id, layer):
+    filters = AlexNet.channels[layer]
+    path = get_path_from_id(img_id)
+
+    # Get activations for shortened model
+    activation_img = AlexNet(layer).predict(path)
+
+    # Make sure that dimensions 2 and 3 are spacial (Image is square)
+    assert activation_img.shape[2] == activation_img.shape[3], "Index ordering incorrect"
+    assert activation_img.shape[1] == filters
+
+    # Find maximum activation for each filter for a given image
+    activation_img = np.nanmax(activation_img, axis=3)
+    activation_img = np.nanmax(activation_img, axis=2)
+
+    # Remove batch size dimension
+    assert activation_img.shape[0] == 1
+    activation_img = activation_img.sum(0)
+
+    # Make activations 1-based indexing
+    activation_img = np.insert(activation_img, 0, 0.0)
+
+    #  activation_image is now a vector of length equal to number of filters (plus one for one-based indexing)
+    #  each entry corresponds to the maximum/summed activation of each filter for a given image
+
+    return activation_img.argmax()
+
+
+def get_strongest_filters(img_id, layer, top=3):
+    filters = AlexNet.channels[layer]
+    path = get_path_from_id(img_id)
+
+    # Get activations for shortened model
+    activation_img = AlexNet(layer).predict(path)
+
+    # Make sure that dimensions 2 and 3 are spacial (Image is square)
+    assert activation_img.shape[2] == activation_img.shape[3], "Index ordering incorrect"
+    assert activation_img.shape[1] == filters
+
+    # Find maximum activation for each filter for a given image
+    activation_img = np.nanmax(activation_img, axis=3)
+    activation_img = np.nanmax(activation_img, axis=2)
+
+    # Remove batch size dimension
+    assert activation_img.shape[0] == 1
+    activation_img = activation_img.sum(0)
+
+    # Make activations 1-based indexing
+    activation_img = np.insert(activation_img, 0, 0.0)
+
+    #  activation_image is now a vector of length equal to number of filters (plus one for one-based indexing)
+    #  each entry corresponds to the maximum/summed activation of each filter for a given image
+
+    top_filters = activation_img.argsort()[-top:]
+    return list(top_filters)
+
+
 if __name__ == '__main__':
-    base_model = alexnet_model()
+    base_model = AlexNet().model
     # Get activations and copy maximally activating images to folder
+    # This takes a while! (~4h on my Surface i5)
     for i in (5, 4, 3, 2, 1):
         get_activations(i, base_model)
         start = time.time()

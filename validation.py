@@ -2,18 +2,15 @@ from alexnet import AlexNet
 import os
 import time
 
-"""
-Determine Accuracy of Top5 predictions on Validation set.
-This is NOT an honest test accuracy, because validation can be used in training. Labels of test set are not available.
-"""
 
-"""
-Predict Top5 most likely classes for images in Validation Set and save them to text file
-"""
+
 
 
 def predict_validation_set(model, batch_size=500, break_after_batches=None, folder='ILSVRC2012_img_val',
                            filename='Data/ILSVRC2012_img_val_predictions.txt'):
+    """
+    Predict Top5 most likely classes for images in Validation Set and save them to text file
+    """
     val_set_size = 50000
 
     # Delete file if exists:
@@ -59,8 +56,17 @@ def predict_validation_set(model, batch_size=500, break_after_batches=None, fold
             print("The extrapolated remaining time is {} min".format(expected_remaining_time / 60))
             print('\n')
 
+def get_path_from_id(img_id):
+    img_id_str = str(img_id)
+    while len(img_id_str) < 5:
+        img_id_str = '0' + img_id_str
 
+    folder = 'ILSVRC2012_IMG_VAL/'
+    file = 'ILSVRC2012_val_000' + img_id_str + '.JPEG'
 
+    path = folder + file
+
+    return path
 
 
 def get_labels():
@@ -83,8 +89,10 @@ def get_labels():
 
 def accuracy_validation_set():
     """
-    Calculate accuracy for Validation set
+    Determine Accuracy of Top5 predictions on Validation set.
+    This is NOT an honest test accuracy, because validation can be used in training. Labels of test set are not available.
     """
+
     labels = get_labels()
     filename = 'Data/ILSVRC2012_img_val_predictions.txt'
     total = 0
